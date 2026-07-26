@@ -1,102 +1,59 @@
 const express = require("express");
+const logger = require("../config/logger"); // Import your Winston logger
 require("dotenv").config();
-const cors = require("cors");
-const mongoose = require("mongoose");
-const logger = require("./config/logger");
-const newsletterRoute = require('./routes/newsletterRoute');
-const errorMiddleware = require("./middlewares/errrorMiddleware"); // Corrected typo
-const passport = require("passport");
-const { handleGoogleOAuth } = require("./controller/googleOAuth.controller");
-const app = express();
-const port = process.env.PORT || 3000;
-const session = require("express-session");
-const MongoStore = require("connect-mongo");
 
-const fileUpload = require("express-fileupload");
-const { cloudinaryConnect } = require("./config/cloudinary");
-
-// CORS configuration
-const corsOptions = {
-  origin: ["http://localhost:5173", "https://play-cafe.vercel.app"],
-  credentials: true,  
-  optionsSuccessStatus: 200,
+const config = {
+  JWT_SECRET: process.env.JWT_SECRET,
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET,
 };
 
-app.use(cors(corsOptions));
+const router = express.Router();
 
+let feedbackRouter;
 
-app.use(express.json());
-app.use('/api', newsletterRoute);
-app.use(
-	fileUpload({
-		useTempFiles: true,
-		tempFileDir: __dirname + "/tmp/",
-	})
-);
+try {
+  feedbackRouter = require("./feedbackRouter");
+} catch (error) {
+  logger.error("Error loading feedbackRouter:", error); // Log the error with Winston
+  feedbackRouter = (req, res) => {
+    res
+      .status(500)
+      .json({ error: "Feedback functionality is currently unavailable" });
+  };
+}
 
-// MongoDB connection
-mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-  })
-  .then(() => {
-    logger.info("Connected to MongoDB"); // Log successful connection
-  })
-  .catch((error) => {
-    logger.error("Database connection failed:", error.message); // Use logger for connection error
-    process.exit(1);
-  });
+let eventRouter;
+try {
+  eventRouter = require("./eventRouter");
+} catch (error) {
+  logger.error("Error loading eventRouter:", error); // Log the error with Winston
+  eventRouter = (req, res) => {
+    res
+      .status(500)
+      .json({ error: "Event functionality is currently unavailable" });
+  };
+}
 
-// call to cloud setup
-cloudinaryConnect();
-
-// Enable CORS preflight for the create reservation route only
-// Uncomment if needed
-// app.options("/api/reservation/create", cors(corsOptions));
-
-// Initialize passport middleware
-app.use(passport.initialize());
-
-app.use(
-  session({
-    secret: process.env.SECRET_KEY,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      maxAge: 1000 * 60 * 60 * 24,
-      secure: false,
+router.get("/", (req, res) => {
+  return res.json({
+    message: "Welcome to the restaurant API!",
+    version: "1.0.0",
+    endpoints: {
+      Reservation: "/reservation",
+      Feedback: "/feedback", // Added feedback endpoint documentation
     },
-    store: MongoStore.create({
-      mongoUrl: process.env.MONGO_URI,
-    }),
-  })
-);
-
-// API routes
-app.use("/api", require("./routes/index"));
-
-app.get(
-  "/auth/google/callback",
-  passport.authenticate("google", {
-    failureRedirect: "/login",
-    session: false,
-  }),
-  handleGoogleOAuth
-);
-
-// Global CORS preflight options
-app.options("*", cors(corsOptions));
-
-// Health Check Endpoint
-app.get("/health", (req, res) => {
-  res.status(200).json({ status: "OK" });
+    documentation: "https://api-docs-url.com",
+  });
 });
 
-// Error handling middleware
-app.use(errorMiddleware);
+router.use("/event", eventRouter);
+router.use("/admin", require("./adminRouter"));
+router.use("/feedback", require("./feedbackRouter"));
+router.use("/user", require("./customerRouter"));
+router.use("/reservation", require("./reservationRouter"));
+router.use("/newsletter", require("./newsletterRoute"));
+router.use("/forgot", require("./forgotRouter"));
+router.use("/order", require("./orderRouter"));
 
-// Start server
-app.listen(port, () => logger.info(`Server is running on port ${port}!`)); // Log server start
-
-module.exports = app;
+module.exports = router;
