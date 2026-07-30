@@ -101,6 +101,3 @@ Developer: [Samriddhi Gururani](https://github.com/ByteByBuoyant)
 
 ---
 
-## License
-
-This project is licensed under the MIT License.
