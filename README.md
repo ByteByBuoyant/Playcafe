@@ -1,4 +1,5 @@
 # PlayCafe
+PlayCafe is a modern full-stack board game café website where users can explore games, book tables, discover upcoming events, and enjoy a seamless, responsive experience built with the MERN stack.
 
 A modern board game café website built to provide users with an engaging experience for discovering games, booking tables, and exploring events.
 
